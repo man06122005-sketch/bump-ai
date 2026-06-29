@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BUMP AI Assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #F4F1EA;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 4px;
+  }
+
+  .logo-circle {
+    width: 44px;
+    height: 44px;
+    background: #E8674E;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  .header-text h1 {
+    font-size: 22px;
+    color: #1a1a1a;
+    font-weight: bold;
+  }
+
+  .header-text p {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  /* API key setup */
+  .setup-box {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid #E8674E;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .setup-box h3 {
+    font-size: 14px;
+    color: #E8674E;
+    margin-bottom: 8px;
+  }
+
+  .setup-box p {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  .key-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .key-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #ddd;
+    font-size: 13px;
+    font-family: monospace;
+    outline: none;
+  }
+
+  .key-row input:focus { border-color: #E8674E; }
+
+  .btn-save {
+    background: #E8674E;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-weight: bold;
+  }
+
+  .btn-save:hover { background: #c0392b; }
+
+  .key-status {
+    font-size: 12px;
+    margin-top: 8px;
+    color: #888;
+  }
+
+  .key-status.ok { color: #27ae60; }
+  .key-status.err { color: #e74c3c; }
+
+  /* Suggestion chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    background: white;
+    border: 1.5px solid #E8674E;
+    color: #E8674E;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+
+  .chip:hover { background: #E8674E; color: white; }
+
+  /* Chat area */
+  .chatbox {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 340px;
+    max-height: 480px;
+    overflow-y: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .msg { display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .msg.ai   { justify-content: flex-start; }
+
+  .bubble {
+    max-width: 82%;
+    padding: 10px 15px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .user .bubble {
+    background: #E8674E;
+    color: white;
+    border-radius: 16px 16px 4px 16px;
+  }
+
+  .ai .bubble {
+    background: #F0F0F0;
+    color: #333;
+    border-radius: 16px 16px 16px 4px;
+    white-space: pre-wrap;
+  }
+
+  .thinking .bubble {
+    color: #aaa;
+    font-style: italic;
+    background: #F8F8F8;
+  }
+
+  /* Input row */
+  .input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .input-row input {
+    flex: 1;
+    padding: 13px 18px;
+    border-radius: 28px;
+    border: 2px solid #E8674E;
+    font-size: 14px;
+    outline: none;
+    background: white;
+  }
+
+  .input-row input:focus { border-color: #c0392b; }
+
+  .btn-ask {
+    background: #E8674E;
+    color: white;
+    border: none;
+    border-radius: 28px;
+    padding: 13px 26px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-ask:hover   { background: #c0392b; }
+  .btn-ask:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #bbb;
+    padding-top: 4px;
+  }
+
+  /* Scrollbar */
+  .chatbox::-webkit-scrollbar { width: 6px; }
+  .chatbox::-webkit-scrollbar-track { background: transparent; }
+  .chatbox::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-circle">B</div>
+    <div class="header-text">
+      <h1>BUMP AI Assistant</h1>
+      <p>Ask anything about your members, revenue, classes or recovery</p>
+    </div>
+  </div>
+
+  <!-- API Key Setup -->
+  <div class="setup-box" id="setupBox">
+    <h3>Setup — Anthropic API Key</h3>
+    <p>Enter your Anthropic API key to connect the AI. Your key is saved in your browser only and never sent anywhere except directly to Anthropic.</p>
+    <div class="key-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
+      <button class="btn-save" onclick="saveKey()">Save Key</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+
+  <!-- Suggestion chips -->
+  <div class="chips">
+    <span class="chip" onclick="ask(this.innerText)">How many active members?</span>
+    <span class="chip" onclick="ask(this.innerText)">Revenue this month vs budget?</span>
+    <span class="chip" onclick="ask(this.innerText)">Who are the high risk members?</span>
+    <span class="chip" onclick="ask(this.innerText)">Trial conversion rate this month?</span>
+    <span class="chip" onclick="ask(this.innerText)">Which class has most no-shows?</span>
+    <span class="chip" onclick="ask(this.innerText)">Recovery sessions this week?</span>
+    <span class="chip" onclick="ask(this.innerText)">How many trials not converted?</span>
+    <span class="chip" onclick="ask(this.innerText)">Members suspended this month?</span>
+  </div>
+
+  <!-- Chat area -->
+  <div class="chatbox" id="chatbox">
+    <div class="msg ai">
+      <div class="bubble">Hi Wes! I'm your BUMP AI assistant. To get started, enter your Anthropic API key above, then paste your live data using the button below and ask me anything.</div>
+    </div>
+  </div>
+
+  <!-- Data paste area (hidden by default) -->
+  <div id="dataSection" style="display:none">
+    <textarea id="dataInput" style="width:100%;height:120px;border-radius:8px;border:1.5px solid #ddd;padding:12px;font-size:12px;font-family:monospace;resize:vertical" placeholder="Paste your BUMP data snapshot here (copy from Google Sheets)..."></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <span style="font-size:11px;color:#888">Paste data from your Google Sheets for accurate answers</span>
+      <button onclick="document.getElementById('dataSection').style.display='none'" style="background:none;border:none;color:#888;cursor:pointer;font-size:12px">Hide</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input type="text" id="inp" placeholder="Ask about your data..." onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="btn-ask" id="askBtn" onclick="sendMessage()">Ask</button>
+  </div>
+
+  <div class="footer">
+    <span onclick="toggleData()" style="cursor:pointer;text-decoration:underline">📋 Paste live data</span>
+    &nbsp;·&nbsp;
+    Powered by Claude AI
+    &nbsp;·&nbsp;
+    <span onclick="clearChat()" style="cursor:pointer;text-decoration:underline">Clear chat</span>
+  </div>
+
+</div>
+
+<script>
+  // ---- Key management ----
+  function saveKey() {
+    var k = document.getElementById('apiKeyInput').value.trim();
+    if (!k || !k.startsWith('sk-ant-')) {
+      setKeyStatus('Key must start with sk-ant-', false);
+      return;
+    }
+    localStorage.setItem('bump_anthropic_key', k);
+    setKeyStatus('✓ Key saved — ready to use', true);
+    document.getElementById('setupBox').style.opacity = '0.6';
+    document.getElementById('apiKeyInput').value = '';
+  }
+
+  function getKey() {
+    return localStorage.getItem('bump_anthropic_key') || '';
+  }
+
+  function setKeyStatus(msg, ok) {
+    var el = document.getElementById('keyStatus');
+    el.textContent = msg;
+    el.className = 'key-status ' + (ok ? 'ok' : 'err');
+  }
+
+  // On load — check if key exists
+  window.onload = function() {
+    if (getKey()) {
+      setKeyStatus('✓ Key already saved', true);
+      document.getElementById('setupBox').style.opacity = '0.6';
+    }
+  };
+
+  // ---- Chat ----
+  var chatHistory = [];
+
+  function ask(text) {
+    document.getElementById('inp').value = text;
+    sendMessage();
+  }
+
+  function toggleData() {
+    var s = document.getElementById('dataSection');
+    s.style.display = s.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function clearChat() {
+    var box = document.getElementById('chatbox');
+    box.innerHTML = '<div class="msg ai"><div class="bubble">Chat cleared. Ask me anything about BUMP.</div></div>';
+    chatHistory = [];
+  }
+
+  function sendMessage() {
+    var inp = document.getElementById('inp');
+    var q   = inp.value.trim();
+    if (!q) return;
+
+    var key = getKey();
+    if (!key) {
+      addMessage('Please enter your Anthropic API key first.', 'ai');
+      return;
+    }
+
+    addMessage(q, 'user');
+    inp.value = '';
+
+    var btn = document.getElementById('askBtn');
+    btn.disabled = true;
+
+    var thinkingEl = addMessage('Thinking...', 'ai thinking');
+
+    // Build context from pasted data if available
+    var pastedData = document.getElementById('dataInput').value.trim();
+    var systemPrompt = "You are an AI assistant for BUMP Whitten Oval, a fitness studio "
+      + "in Footscray, Melbourne, Australia. "
+      + "Answer questions about the business concisely and helpfully. "
+      + "Use specific numbers when available. "
+      + "If data is not available, suggest where Wes can find it in the dashboard.";
+
+    var userContent = q;
+    if (pastedData) {
+      userContent = "Here is the current BUMP business data:\n\n" + pastedData + "\n\nQuestion: " + q;
+    }
+
+    // Add to history
+    chatHistory.push({ role: "user", content: userContent });
+
+    // Keep last 10 messages to avoid token limit
+    var messages = chatHistory.slice(-10);
+
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         key,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model:      'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system:     systemPrompt,
+        messages:   messages
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      thinkingEl.remove();
+      if (data.content && data.content[0]) {
+        var reply = data.content[0].text;
+        addMessage(reply, 'ai');
+        chatHistory.push({ role: "assistant", content: reply });
+      } else if (data.error) {
+        addMessage('Error: ' + data.error.message, 'ai');
+        // Remove the failed user message from history
+        chatHistory.pop();
+      }
+      btn.disabled = false;
+    })
+    .catch(function(err) {
+      thinkingEl.remove();
+      addMessage('Network error: ' + err.message + '. Check your internet connection.', 'ai');
+      chatHistory.pop();
+      btn.disabled = false;
+    });
+  }
+
+  function addMessage(text, cls) {
+    var box  = document.getElementById('chatbox');
+    var div  = document.createElement('div');
+    div.className = 'msg ' + cls;
+    var bub  = document.createElement('div');
+    bub.className = 'bubble';
+    bub.innerText = text;
+    div.appendChild(bub);
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+  }
+</script>
+
+</body>
+</html>
