@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BUMP AI Assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #F4F1EA;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  .container { width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 16px; }
+
+  .header { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 46px; height: 46px; background: #E8674E; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 20px; font-weight: bold; flex-shrink: 0; }
+  .header-text h1 { font-size: 22px; color: #1a1a1a; font-weight: bold; }
+  .header-text p { font-size: 12px; color: #888; margin-top: 2px; }
+
+  .status-bar {
+    background: white; border-radius: 10px; padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: #666;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .dot.green  { background: #27ae60; }
+  .dot.orange { background: #f39c12; animation: pulse 1.5s infinite; }
+  .dot.red    { background: #e74c3c; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: white; border: 1.5px solid #E8674E; color: #E8674E;
+    border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+    transition: background 0.15s, color 0.15s; white-space: nowrap;
+  }
+  .chip:hover { background: #E8674E; color: white; }
+
+  .chatbox {
+    background: white; border-radius: 12px; padding: 20px;
+    min-height: 360px; max-height: 500px; overflow-y: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .msg { display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .msg.ai   { justify-content: flex-start; }
+  .bubble {
+    max-width: 85%; padding: 10px 15px; border-radius: 16px;
+    font-size: 14px; line-height: 1.6;
+  }
+  .user .bubble { background: #E8674E; color: white; border-radius: 16px 16px 4px 16px; }
+  .ai   .bubble { background: #F0F0F0; color: #333; border-radius: 16px 16px 16px 4px; white-space: pre-wrap; }
+  .thinking .bubble { color: #aaa; font-style: italic; background: #F8F8F8; }
+
+  .input-row { display: flex; gap: 8px; }
+  .input-row input {
+    flex: 1; padding: 13px 18px; border-radius: 28px;
+    border: 2px solid #E8674E; font-size: 14px; outline: none; background: white;
+  }
+  .input-row input:focus { border-color: #c0392b; }
+  .btn-ask {
+    background: #E8674E; color: white; border: none; border-radius: 28px;
+    padding: 13px 26px; font-size: 14px; font-weight: bold; cursor: pointer;
+  }
+  .btn-ask:hover   { background: #c0392b; }
+  .btn-ask:disabled { background: #ccc; cursor: not-allowed; }
+
+  .footer { text-align: center; font-size: 11px; color: #bbb; padding-top: 4px; }
+  .footer span { cursor: pointer; text-decoration: underline; }
+  .chatbox::-webkit-scrollbar { width: 6px; }
+  .chatbox::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo">B</div>
+    <div class="header-text">
+      <h1>BUMP AI Assistant</h1>
+      <p>Live data from BUMP Whitten Oval · Powered by Claude AI</p>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="dot orange" id="statusDot"></div>
+    <span id="statusText">Loading live BUMP data...</span>
+    <span style="margin-left:auto;cursor:pointer;color:#E8674E;font-size:11px" onclick="refreshData()">↻ Refresh</span>
+  </div>
+
+  <div class="chips">
+    <span class="chip" onclick="ask(this.innerText)">How many active members?</span>
+    <span class="chip" onclick="ask(this.innerText)">Revenue this month vs budget?</span>
+    <span class="chip" onclick="ask(this.innerText)">Who are the high risk members?</span>
+    <span class="chip" onclick="ask(this.innerText)">Trial conversion rate this month?</span>
+    <span class="chip" onclick="ask(this.innerText)">Which class has the most no-shows?</span>
+    <span class="chip" onclick="ask(this.innerText)">Recovery sessions this week?</span>
+    <span class="chip" onclick="ask(this.innerText)">How many trials not converted?</span>
+    <span class="chip" onclick="ask(this.innerText)">Members suspended this month?</span>
+    <span class="chip" onclick="ask(this.innerText)">New members this month vs last month?</span>
+    <span class="chip" onclick="ask(this.innerText)">What should I focus on today?</span>
+  </div>
+
+  <div class="chatbox" id="chatbox">
+    <div class="msg ai">
+      <div class="bubble">Loading your live BUMP data...</div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <input type="text" id="inp" placeholder="Ask anything about BUMP..."
+      onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="btn-ask" id="askBtn" onclick="sendMessage()">Ask</button>
+  </div>
+
+  <div class="footer">
+    <span onclick="clearChat()">Clear chat</span>
+    &nbsp;·&nbsp; BUMP Whitten Oval &nbsp;·&nbsp;
+    <span onclick="refreshData()">Refresh data</span>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// PASTE YOUR CREDENTIALS HERE — do this once then upload to GitHub
+// ============================================================
+var CONFIG = {
+  anthropicKey: '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',
+  googleKey:    'AIzaSyBMBh4-s6J4edJ9ZVzrkvIjyVp3hsjFiqs',
+  sheetId:      '1lpheAyiDEM1IKi_ox8FRKPfEtSgZbZBulqu9JNUrwUI'
+};
+// ============================================================
+
+var liveData    = '';
+var chatHistory = [];
+
+function setStatus(state, text) {
+  document.getElementById('statusDot').className  = 'dot ' + state;
+  document.getElementById('statusText').textContent = text;
+}
+
+// ---- Load data from Google Sheets ----
+function refreshData() {
+  setStatus('orange', 'Loading live BUMP data...');
+
+  var sheets = [
+    'Budget Targets',
+    'MB Members Data',
+    'MB Sales Data',
+    'MB Retention Risk',
+    'MB Briefing Summary',
+    'MB Recovery Summary',
+    'MB Trial Conversion',
+    'MB Member Movement',
+    'MB Class Data',
+    'MB Follow Up List'
+  ];
+
+  var promises = sheets.map(function(name) {
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+      + CONFIG.sheetId + '/values/'
+      + encodeURIComponent(name)
+      + '?key=' + CONFIG.googleKey;
+    return fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(d) { return { name: name, values: d.values || [] }; })
+      .catch(function() { return { name: name, values: [] }; });
+  });
+
+  Promise.all(promises).then(function(results) {
+    liveData = buildContext(results);
+    if (liveData.length > 200) {
+      setStatus('green', 'Live data ready — ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'}));
+      var box = document.getElementById('chatbox');
+      box.innerHTML = '';
+      addMessage(
+        'Hi Wes! Your live BUMP data is loaded and ready.\n\n'
+        + 'Tap any question above or type your own below.',
+        'ai'
+      );
+    } else {
+      setStatus('red', 'Could not load data — check sheet is shared publicly');
+      var box = document.getElementById('chatbox');
+      box.innerHTML = '';
+      addMessage(
+        'Could not load BUMP data. Make sure your Google Sheet is shared as '
+        + '"Anyone with the link can view".',
+        'ai'
+      );
+    }
+  });
+}
+
+function buildContext(results) {
+  var text = '=== LIVE BUMP DATA ===\n';
+  text += 'As of: ' + new Date().toLocaleString('en-AU') + '\n\n';
+
+  results.forEach(function(sheet) {
+    if (!sheet.values || sheet.values.length < 2) return;
+    var headers = sheet.values[0];
+    var rows    = sheet.values.slice(1);
+
+    // Budget vs actuals
+    if (sheet.name === 'Budget Targets') {
+      text += 'BUDGET VS ACTUAL (this month):\n';
+      rows.forEach(function(r) {
+        if (!r[0]) return;
+        text += '  ' + r[0]
+          + ' | Actual: ' + (r[1]||0)
+          + ' | Last Month: ' + (r[2]||0)
+          + ' | Budget: ' + (r[3]||0)
+          + ' | Variance: ' + (r[4]||0)
+          + ' | ' + (r[6]||'—') + '\n';
+      });
+      text += '\n';
+    }
+
+    // Member counts by category
+    if (sheet.name === 'MB Members Data') {
+      var cc = headers.indexOf('Member Category');
+      var cs = headers.indexOf('Status');
+      var counts = {};
+      rows.forEach(function(r) {
+        var cat = r[cc] || 'Other';
+        counts[cat] = (counts[cat]||0) + 1;
+      });
+      text += 'MEMBER BREAKDOWN:\n';
+      Object.keys(counts).sort().forEach(function(k) {
+        text += '  ' + k + ': ' + counts[k] + '\n';
+      });
+      text += '  TOTAL: ' + rows.length + '\n\n';
+    }
+
+    // Revenue last 30 days by product group
+    if (sheet.name === 'MB Sales Data') {
+      var colRev  = headers.indexOf('Revenue (Inc Tax)');
+      var colDate = headers.indexOf('Sale Date');
+      var colGrp  = headers.indexOf('Product Group');
+      var colItem = headers.indexOf('Item Name');
+      var cut = new Date(); cut.setDate(cut.getDate()-30);
+
+      // This month
+      var now = new Date();
+      var thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      var lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      var lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      var tot30=0; var totThisMonth=0; var totLastMonth=0; var grp={};
+      rows.forEach(function(r) {
+        var item = (r[colItem]||'').toLowerCase();
+        if (item.indexOf('payment processing') !== -1) return;
+        var dateStr = r[colDate]||'';
+        var d = null;
+        try {
+          var p = dateStr.split('/');
+          if (p.length===3) d = new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+        } catch(e) {}
+        if (!d) return;
+        var rev = parseFloat(r[colRev])||0;
+        if (d >= cut) { tot30 += rev; var g=r[colGrp]||'Other'; grp[g]=(grp[g]||0)+rev; }
+        if (d >= thisMonthStart) totThisMonth += rev;
+        if (d >= lastMonthStart && d <= lastMonthEnd) totLastMonth += rev;
+      });
+      text += 'REVENUE:\n';
+      text += '  This month: $' + Math.round(totThisMonth) + '\n';
+      text += '  Last month: $' + Math.round(totLastMonth) + '\n';
+      text += '  Last 30 days: $' + Math.round(tot30) + '\n';
+      text += '  By product group (last 30d):\n';
+      Object.keys(grp).sort().forEach(function(g) {
+        text += '    ' + g + ': $' + Math.round(grp[g]) + '\n';
+      });
+      text += '\n';
+    }
+
+    // High risk members
+    if (sheet.name === 'MB Retention Risk') {
+      var rn  = headers.indexOf('Full Name');
+      var rr  = headers.indexOf('Risk Category');
+      var rvd = headers.indexOf('Days Since Last Visit');
+      var hr  = rows.filter(function(r){ return r[rr]==='High Risk'; });
+      var mr  = rows.filter(function(r){ return r[rr]==='Medium Risk'; });
+      text += 'RETENTION RISK:\n';
+      text += '  High risk: ' + hr.length + ' members\n';
+      text += '  Medium risk: ' + mr.length + ' members\n';
+      text += '  Top high risk:\n';
+      hr.slice(0,8).forEach(function(r){
+        text += '    ' + r[rn] + ' — ' + r[rvd] + ' days\n';
+      });
+      text += '\n';
+    }
+
+    // Today briefing
+    if (sheet.name === 'MB Briefing Summary' && rows.length > 0) {
+      var last = rows[rows.length-1];
+      text += 'TODAY\'S BRIEFING:\n';
+      text += '  Date: ' + (last[0]||'') + '\n';
+      text += '  New clients: ' + (last[1]||0) + '\n';
+      text += '  Classes: ' + (last[2]||0) + '\n';
+      text += '  Full classes: ' + (last[3]||0) + '\n';
+      text += '  Low booking classes: ' + (last[4]||0) + '\n';
+      text += '  Total booked: ' + (last[6]||0) + '\n\n';
+    }
+
+    // Recovery by type
+    if (sheet.name === 'MB Recovery Summary') {
+      text += 'RECOVERY SERVICES:\n';
+      rows.forEach(function(r){
+        if (!r[0]) return;
+        text += '  ' + r[0] + ': ' + r[1] + ' sessions, $' + r[2]
+          + ' revenue (' + (r[3]||'') + ' of total)\n';
+      });
+      text += '\n';
+    }
+
+    // Trial conversion
+    if (sheet.name === 'MB Trial Conversion') {
+      var tp = headers.indexOf('Period Type');
+      var tt = headers.indexOf('Trials Started');
+      var tc = headers.indexOf('Converted to Member');
+      var tnc = headers.indexOf('Not Converted');
+      var tr = headers.indexOf('Conversion Rate %');
+      text += 'TRIAL CONVERSION:\n';
+      rows.forEach(function(r){
+        var pt = r[tp]||'';
+        if (pt==='This Month'||pt==='Last Month'||pt==='All Time') {
+          text += '  ' + pt + ': ' + r[tt] + ' trials started, '
+            + r[tc] + ' converted, ' + (r[tnc]||0) + ' not converted ('
+            + r[tr] + '% conversion rate)\n';
+        }
+      });
+      text += '\n';
+    }
+
+    // Member movement summary
+    if (sheet.name === 'MB Member Movement') {
+      var mt = headers.indexOf('Movement Type');
+      var md = headers.indexOf('Created Date');
+      var now2 = new Date();
+      var thisStart = new Date(now2.getFullYear(), now2.getMonth(), 1);
+      var lastStart = new Date(now2.getFullYear(), now2.getMonth()-1, 1);
+      var lastEnd   = new Date(now2.getFullYear(), now2.getMonth(), 0);
+      var thisMonth2 = {}; var lastMonth2 = {};
+      rows.forEach(function(r){
+        var t = r[mt]||'Other';
+        var dateStr = r[md]||'';
+        var d = null;
+        try {
+          var p = dateStr.split('/');
+          if (p.length===3) d = new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+        } catch(e){}
+        if (d && d >= thisStart) thisMonth2[t] = (thisMonth2[t]||0)+1;
+        if (d && d >= lastStart && d <= lastEnd) lastMonth2[t] = (lastMonth2[t]||0)+1;
+      });
+      text += 'MEMBER MOVEMENT THIS MONTH:\n';
+      Object.keys(thisMonth2).forEach(function(k){ text += '  '+k+': '+thisMonth2[k]+'\n'; });
+      text += 'MEMBER MOVEMENT LAST MONTH:\n';
+      Object.keys(lastMonth2).forEach(function(k){ text += '  '+k+': '+lastMonth2[k]+'\n'; });
+      text += '\n';
+    }
+
+    // Classes today and top no-shows
+    if (sheet.name === 'MB Class Data') {
+      var cn  = headers.indexOf('Class Name');
+      var cns = headers.indexOf('No Shows');
+      var cdt = headers.indexOf('Class Date');
+      var cex = headers.indexOf('Excluded');
+      var today = new Date();
+      var todayStr = (today.getDate()<10?'0'+today.getDate():today.getDate())+'/'
+        +((today.getMonth()+1)<10?'0'+(today.getMonth()+1):(today.getMonth()+1))+'/'
+        +today.getFullYear();
+      var todayClasses = rows.filter(function(r){ return r[cdt]===todayStr && r[cex]!=='Yes'; });
+      text += 'CLASSES TODAY: ' + todayClasses.length + '\n';
+
+      // Top no-show classes last 30 days
+      var noShowByClass = {};
+      rows.forEach(function(r){
+        if (r[cex]==='Yes') return;
+        var ns = parseInt(r[cns])||0;
+        if (ns > 0) {
+          var name = r[cn]||'Unknown';
+          noShowByClass[name] = (noShowByClass[name]||0) + ns;
+        }
+      });
+      var sorted = Object.keys(noShowByClass).sort(function(a,b){return noShowByClass[b]-noShowByClass[a];});
+      text += 'TOP CLASSES BY NO-SHOWS:\n';
+      sorted.slice(0,5).forEach(function(n){ text += '  '+n+': '+noShowByClass[n]+' no-shows\n'; });
+      text += '\n';
+    }
+
+    // Follow up list top priority
+    if (sheet.name === 'MB Follow Up List') {
+      var fp  = headers.indexOf('Priority');
+      var fn2 = headers.indexOf('Full Name');
+      var fr  = headers.indexOf('Risk Category');
+      var frs = headers.indexOf('Follow Up Reason');
+      var p1  = rows.filter(function(r){ return String(r[fp])==='1'; });
+      text += 'PRIORITY FOLLOW-UPS (High Risk — ' + p1.length + ' members):\n';
+      p1.slice(0,5).forEach(function(r){
+        text += '  ' + r[fn2] + ' — ' + r[frs] + '\n';
+      });
+      text += '\n';
+    }
+  });
+
+  return text;
+}
+
+// ---- Chat ----
+function ask(text) {
+  document.getElementById('inp').value = text;
+  sendMessage();
+}
+
+function clearChat() {
+  document.getElementById('chatbox').innerHTML = '';
+  chatHistory = [];
+  addMessage('Chat cleared. Ask me anything about BUMP.', 'ai');
+}
+
+function sendMessage() {
+  var inp = document.getElementById('inp');
+  var q   = inp.value.trim();
+  if (!q) return;
+
+  addMessage(q, 'user');
+  inp.value = '';
+  document.getElementById('askBtn').disabled = true;
+
+  var thinkingEl = addMessage('Thinking...', 'ai thinking');
+
+  var systemPrompt = 'You are an AI assistant for Wes Hall, Club Director of BUMP Whitten Oval, '
+    + 'a fitness studio at 417 Barkly Street Footscray Melbourne. '
+    + 'You have access to live business data. Be concise, direct and use specific numbers. '
+    + 'Format currency with $ and round to nearest dollar. '
+    + 'When giving recommendations be practical and action-oriented. '
+    + 'If data is missing say so briefly and move on.\n\n'
+    + 'LIVE DATA:\n' + liveData;
+
+  chatHistory.push({ role: 'user', content: q });
+  var messages = chatHistory.slice(-12);
+
+  var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages');
+
+  fetch(proxyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'x-api-key':         CONFIG.anthropicKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model:      'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system:     systemPrompt,
+      messages:   messages
+    })
+  })
+  .then(function(r) {
+    if (!r.ok) return r.text().then(function(t){ throw new Error('Error ' + r.status + ': ' + t.substring(0,200)); });
+    return r.json();
+  })
+  .then(function(data) {
+    thinkingEl.remove();
+    var reply = data.content && data.content[0] ? data.content[0].text : 'No response received.';
+    addMessage(reply, 'ai');
+    chatHistory.push({ role: 'assistant', content: reply });
+    document.getElementById('askBtn').disabled = false;
+  })
+  .catch(function(err) {
+    thinkingEl.remove();
+    addMessage('Error: ' + err.message + '\n\nIf this keeps happening the CORS proxy may be down. Try refreshing.', 'ai');
+    chatHistory.pop();
+    document.getElementById('askBtn').disabled = false;
+  });
+}
+
+function addMessage(text, cls) {
+  var box = document.getElementById('chatbox');
+  var div = document.createElement('div'); div.className = 'msg ' + cls;
+  var bub = document.createElement('div'); bub.className = 'bubble'; bub.innerText = text;
+  div.appendChild(bub); box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+// ---- Init ----
+window.onload = function() { refreshData(); };
+</script>
+</body>
+</html>
